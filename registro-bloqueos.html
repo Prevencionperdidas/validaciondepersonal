@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro de Bloqueos · PPS</title>
+<style>
+:root{--azul:#0058A3;--azul2:#004480;--amarillo:#FFDB00;--bg:#f2f4f7;--card:#fff;--txt:#1d2433;--muted:#6b7385;--rojo:#c62828;--verde:#2e7d32;--naranja:#e65100;--borde:#d9dee7}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans","Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+header{background:var(--azul);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:4px solid var(--amarillo)}
+.logo{width:42px;height:42px;border-radius:10px;background:var(--amarillo);color:var(--azul);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+header h1{font-size:17px;margin:0}header small{opacity:.85;font-size:12px}
+.hright{margin-left:auto;text-align:right;font-size:12px}
+.hright a{color:var(--amarillo);cursor:pointer;text-decoration:underline}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 12px;color:var(--azul)}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
+label .req{color:var(--rojo)}
+input,select,textarea{width:100%;padding:11px 12px;border:1.5px solid var(--borde);border-radius:8px;font-size:15px;font-family:inherit;background:#fff}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--azul)}
+textarea{min-height:90px;resize:vertical}
+.hint{font-size:12px;margin-top:5px;min-height:16px}
+.ok{color:var(--verde)}.err{color:var(--rojo)}.warn{color:var(--naranja)}
+input.bad{border-color:var(--rojo)}input.good{border-color:var(--verde)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.chip{border:1.5px solid var(--borde);background:#fff;border-radius:20px;padding:7px 13px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+.btn{display:block;width:100%;padding:14px;border:0;border-radius:10px;background:var(--azul);color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:18px}
+.btn:hover{background:var(--azul2)}.btn:disabled{opacity:.6;cursor:wait}
+.btn.sec{background:#fff;color:var(--azul);border:1.5px solid var(--azul);font-size:14px;padding:10px;margin-top:10px}
+.alerta{background:#fff3e0;border-left:4px solid var(--naranja);padding:10px 12px;border-radius:6px;font-size:13px;margin-top:8px}
+.cola{display:none;background:#fff8d6;border:1px solid #f0d64a;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;align-items:center;gap:10px}
+.cola button{margin-left:auto;border:0;background:var(--azul);color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer}
+.lista{list-style:none;margin:0;padding:0;font-size:13px}
+.lista li{padding:8px 0;border-bottom:1px solid #eef0f4;display:flex;justify-content:space-between;gap:8px}
+.lista li span:last-child{color:var(--muted);white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#1d2433;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;transition:.3s;max-width:90%;z-index:9}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.e{background:var(--rojo)}#toast.s{background:var(--verde)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">PPS</div>
+  <div><h1>Registro de Bloqueos</h1><small>Equipo CCTV · IKEA CD Chile</small></div>
+  <div class="hright" id="hUser"></div>
+</header>
+
+<main>
+  <!-- Configuración de operador (primera vez) -->
+  <section class="card hidden" id="cfgCard">
+    <h2>Identificación del operador</h2>
+    <label>Tu nombre <span class="req">*</span></label>
+    <input id="cfgUser" placeholder="Ej: Juan Pérez">
+    <label>Clave del equipo CCTV <span class="req">*</span></label>
+    <input id="cfgClave" type="password" placeholder="Entregada por tu jefatura">
+    <button class="btn" id="cfgBtn">Ingresar</button>
+  </section>
+
+  <div class="cola" id="colaBox"><span id="colaTxt"></span><button id="colaBtn">Reintentar</button></div>
+
+  <!-- Formulario -->
+  <section class="card hidden" id="formCard">
+    <h2>Nuevo bloqueo</h2>
+    <form id="frm" autocomplete="off">
+      <label>RUT <span class="req">*</span></label>
+      <input id="rut" inputmode="text" placeholder="12.345.678-9" maxlength="12">
+      <div class="hint" id="rutHint"></div>
+      <div id="rutAlerta"></div>
+
+      <label>Nombre completo <span class="req">*</span></label>
+      <input id="nombre" placeholder="Nombres y apellidos">
+
+      <label>Categoría <span class="req">*</span></label>
+      <select id="categoria">
+        <option value="">Selecciona…</option>
+        <option>Hurto / Robo</option>
+        <option>Intento de hurto</option>
+        <option>Agresión o conducta violenta</option>
+        <option>Falta grave a normas de seguridad</option>
+        <option>Consumo de alcohol o drogas</option>
+        <option>Daño a la propiedad</option>
+        <option>Fraude / Falsificación de documentos</option>
+        <option>Otro</option>
+      </select>
+
+      <label>Motivo / descripción <span class="req">*</span></label>
+      <textarea id="motivo" placeholder="Describe brevemente el hecho"></textarea>
+
+      <label>Referencia investigación CCTV</label>
+      <input id="ref" placeholder="N° de caso o investigación (opcional)">
+
+      <div class="row">
+        <div><label>Fecha inicio <span class="req">*</span></label><input type="date" id="inicio"></div>
+        <div><label>Vigencia</label>
+          <div class="chips" id="vigChips">
+            <button type="button" class="chip on" data-v="ind">Indefinido</button>
+            <button type="button" class="chip" data-v="6">6 meses</button>
+            <button type="button" class="chip" data-v="12">1 año</button>
+            <button type="button" class="chip" data-v="fecha">Fecha</button>
+          </div>
+        </div>
+      </div>
+      <div id="terminoBox" class="hidden">
+        <label>Fecha de término</label><input type="date" id="termino">
+      </div>
+
+      <button class="btn" id="btnEnviar" type="submit">Registrar bloqueo</button>
+    </form>
+  </section>
+
+  <section class="card hidden" id="recCard">
+    <h2>Registrados desde este equipo</h2>
+    <ul class="lista" id="recList"></ul>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+/* ===== CONFIGURACIÓN: pega aquí la URL de la implementación de Apps Script ===== */
+const API_URL = 'PEGAR_AQUI_URL_APPS_SCRIPT';
+
+const LS = { user: 'bloq_user', clave: 'bloq_clave', cola: 'bloq_cola', rec: 'bloq_recientes' };
+const $ = id => document.getElementById(id);
+let vigencia = 'ind';
+let syncing = false;
+
+/* ---------- utilidades ---------- */
+function lsGet(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function toast(msg, tipo) {
+  const t = $('toast'); t.textContent = msg; t.className = 'show ' + (tipo || '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = '', 4000);
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function hoyISO() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+function sumarMeses(iso, m) { const [y, mo, d] = iso.split('-').map(Number); const f = new Date(y, mo - 1 + m, d); f.setMinutes(f.getMinutes() - f.getTimezoneOffset()); return f.toISOString().slice(0, 10); }
+function uid() { return 'R' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function jsonp(params, timeout) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    const s = document.createElement('script');
+    let done = false;
+    const fin = () => { done = true; clearTimeout(t); window[cb] = function () {}; s.remove(); };
+    const t = setTimeout(() => { if (!done) { fin(); reject(new Error('Sin respuesta del servidor')); } }, timeout || 20000);
+    window[cb] = d => { if (!done) { fin(); resolve(d); } };
+    s.onerror = () => { if (!done) { fin(); reject(new Error('Sin conexión con el servidor')); } };
+    s.src = API_URL + '?' + new URLSearchParams(Object.assign({}, params, { callback: cb })).toString();
+    document.body.appendChild(s);
+  });
+}
+
+/* ---------- RUT ---------- */
+function calcDV(body) {
+  let s = 0, m = 2;
+  for (let i = body.length - 1; i >= 0; i--) { s += +body[i] * m; m = m === 7 ? 2 : m + 1; }
+  const r = 11 - (s % 11);
+  return r === 11 ? '0' : r === 10 ? 'K' : String(r);
+}
+function parseRut(raw) {
+  let s = String(raw || '').toUpperCase().replace(/[.\s]/g, ''), body, dv;
+  if (s.includes('-')) { const p = s.split('-'); body = p[0].replace(/\D/g, ''); dv = (p[1] || '').replace(/[^0-9K]/g, '').slice(0, 1); }
+  else { s = s.replace(/[^0-9K]/g, ''); body = s.slice(0, -1); dv = s.slice(-1); }
+  body = body.replace(/^0+/, '');
+  const valido = /^\d{6,9}$/.test(body) && dv === calcDV(body);
+  return { body, dv, valido, display: valido ? body.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv : raw };
+}
+
+/* ---------- sesión ---------- */
+function initSesion() {
+  const u = lsGet(LS.user, ''), c = lsGet(LS.clave, '');
+  const listo = !!(u && c);
+  $('cfgCard').classList.toggle('hidden', listo);
+  $('formCard').classList.toggle('hidden', !listo);
+  $('recCard').classList.toggle('hidden', !listo || !lsGet(LS.rec, []).length);
+  $('hUser').innerHTML = listo ? esc(u) + '<br><a id="salir">Cambiar operador</a>' : '';
+  if (listo) $('salir').onclick = () => { localStorage.removeItem(LS.user); localStorage.removeItem(LS.clave); initSesion(); };
+}
+$('cfgBtn').onclick = () => {
+  const u = $('cfgUser').value.trim(), c = $('cfgClave').value.trim();
+  if (!u || !c) return toast('Completa nombre y clave', 'e');
+  lsSet(LS.user, u); lsSet(LS.clave, c); initSesion(); syncCola();
+};
+
+/* ---------- validación RUT en vivo ---------- */
+$('rut').addEventListener('input', () => {
+  const v = $('rut').value; $('rutAlerta').innerHTML = '';
+  if (v.replace(/[^0-9kK]/g, '').length < 7) { $('rutHint').textContent = ''; $('rut').className = ''; return; }
+  const p = parseRut(v);
+  $('rut').className = p.valido ? 'good' : 'bad';
+  $('rutHint').className = 'hint ' + (p.valido ? 'ok' : 'err');
+  $('rutHint').textContent = p.valido ? '✓ RUT válido' : '✗ Dígito verificador incorrecto';
+});
+$('rut').addEventListener('blur', async () => {
+  const p = parseRut($('rut').value);
+  if (!p.valido) return;
+  $('rut').value = p.display;
+  try {
+    const r = await jsonp({ action: 'verificar', clave: lsGet(LS.clave, ''), rut: p.display }, 10000);
+    if (r.ok && r.vigentes > 0) $('rutAlerta').innerHTML = '<div class="alerta">⚠️ Este RUT ya tiene <b>' + r.vigentes + '</b> bloqueo(s) vigente(s). Puedes registrar uno nuevo si corresponde a otro hecho.</div>';
+    else if (r.code === 'CLAVE') toast('Clave de equipo incorrecta. Usa "Cambiar operador".', 'e');
+  } catch (e) { /* sin conexión: se valida igual al enviar */ }
+});
+
+/* ---------- vigencia ---------- */
+$('vigChips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  document.querySelectorAll('#vigChips .chip').forEach(c => c.classList.toggle('on', c === b));
+  vigencia = b.dataset.v;
+  $('terminoBox').classList.toggle('hidden', vigencia !== 'fecha');
+});
+
+/* ---------- envío + cola offline ---------- */
+$('frm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const p = parseRut($('rut').value);
+  const nombre = $('nombre').value.trim(), motivo = $('motivo').value.trim(), categoria = $('categoria').value;
+  const inicio = $('inicio').value || hoyISO();
+  let termino = '';
+  if (vigencia === '6' || vigencia === '12') termino = sumarMeses(inicio, +vigencia);
+  if (vigencia === 'fecha') { termino = $('termino').value; if (!termino) return toast('Indica la fecha de término', 'e'); }
+  if (!p.valido) return toast('RUT inválido', 'e');
+  if (!nombre || !categoria || !motivo) return toast('Completa los campos obligatorios', 'e');
+  if (termino && termino < inicio) return toast('La fecha de término es anterior al inicio', 'e');
+
+  const item = { id: uid(), rut: p.display, nombre, categoria, motivo, ref: $('ref').value.trim(), inicio, termino, usuario: lsGet(LS.user, '') };
+  const cola = lsGet(LS.cola, []); cola.push(item); lsSet(LS.cola, cola);
+  $('btnEnviar').disabled = true;
+  const res = await syncCola();
+  $('btnEnviar').disabled = false;
+
+  if (res.enviados.includes(item.id)) toast('✓ Bloqueo registrado: ' + p.display, 's');
+  else if (res.errorClave) toast('Clave incorrecta: el registro quedó guardado en este equipo', 'e');
+  else if (!res.rechazados.includes(item.id)) toast('Sin conexión: guardado en cola, se enviará automáticamente');
+  if (!res.rechazados.includes(item.id)) {
+    $('frm').reset(); $('inicio').value = hoyISO(); $('rut').className = ''; $('rutHint').textContent = ''; $('rutAlerta').innerHTML = '';
+    document.querySelector('#vigChips .chip[data-v="ind"]').click();
+    $('rut').focus();
+  }
+});
+
+async function syncCola() {
+  const out = { enviados: [], rechazados: [], errorClave: false };
+  if (syncing) return out;
+  syncing = true;
+  try {
+    let cola = lsGet(LS.cola, []);
+    for (const item of cola.slice()) {
+      let r;
+      try { r = await jsonp(Object.assign({ action: 'registrar', clave: lsGet(LS.clave, '') }, item)); }
+      catch (e) { break; } // sin conexión: se reintenta después
+      if (r.ok) {
+        out.enviados.push(item.id);
+        cola = cola.filter(x => x.id !== item.id);
+        const rec = lsGet(LS.rec, []); rec.unshift({ rut: item.rut, nombre: item.nombre, f: new Date().toLocaleString('es-CL') }); lsSet(LS.rec, rec.slice(0, 10));
+      } else if (r.code === 'CLAVE') { out.errorClave = true; break; }
+      else { out.rechazados.push(item.id); cola = cola.filter(x => x.id !== item.id); toast('Rechazado (' + item.rut + '): ' + r.error, 'e'); }
+      lsSet(LS.cola, cola);
+    }
+  } finally { syncing = false; pintarCola(); pintarRecientes(); }
+  return out;
+}
+function pintarCola() {
+  const n = lsGet(LS.cola, []).length;
+  $('colaBox').style.display = n ? 'flex' : 'none';
+  $('colaTxt').textContent = '⏳ ' + n + ' registro(s) pendiente(s) de envío';
+}
+function pintarRecientes() {
+  const rec = lsGet(LS.rec, []);
+  $('recList').innerHTML = rec.map(r => '<li><span><b>' + esc(r.rut) + '</b> · ' + esc(r.nombre) + '</span><span>' + esc(r.f) + '</span></li>').join('');
+  $('recCard').classList.toggle('hidden', !rec.length || $('formCard').classList.contains('hidden'));
+}
+$('colaBtn').onclick = async () => { const r = await syncCola(); toast(r.enviados.length ? '✓ ' + r.enviados.length + ' enviado(s)' : 'Aún sin conexión', r.enviados.length ? 's' : 'e'); };
+
+/* ---------- inicio ---------- */
+$('inicio').value = hoyISO();
+initSesion(); pintarCola(); pintarRecientes();
+if (lsGet(LS.cola, []).length) syncCola();
+setInterval(() => { if (lsGet(LS.cola, []).length) syncCola(); }, 60000);
+window.addEventListener('online', syncCola);
+</script>
+</body>
+</html>

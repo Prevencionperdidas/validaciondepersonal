@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cruce de Bloqueos · PPS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--azul:#0058A3;--azul2:#004480;--amarillo:#FFDB00;--bg:#f2f4f7;--card:#fff;--txt:#1d2433;--muted:#6b7385;--rojo:#c62828;--verde:#2e7d32;--naranja:#e65100;--borde:#d9dee7}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans","Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+header{background:var(--azul);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:4px solid var(--amarillo)}
+.logo{width:42px;height:42px;border-radius:10px;background:var(--amarillo);color:var(--azul);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+header h1{font-size:17px;margin:0}header small{opacity:.85;font-size:12px}
+nav{display:flex;gap:4px;background:#fff;padding:0 16px;border-bottom:1px solid var(--borde)}
+nav button{border:0;background:none;padding:13px 14px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+nav button.on{color:var(--azul);border-color:var(--azul)}
+main{max-width:1150px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 12px;color:var(--azul)}
+label{display:block;font-size:12px;font-weight:600;margin:0 0 5px;color:var(--muted)}
+input,select{width:100%;padding:10px 11px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;font-family:inherit;background:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.btn{padding:11px 16px;border:0;border-radius:9px;background:var(--azul);color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+.btn:hover{background:var(--azul2)}.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--azul);border:1.5px solid var(--azul)}
+.btn.y{background:var(--amarillo);color:var(--azul)}
+.drop{border:2px dashed var(--borde);border-radius:12px;padding:26px;text-align:center;cursor:pointer;color:var(--muted);transition:.2s}
+.drop:hover,.drop.over{border-color:var(--azul);background:#f3f8fd}
+.drop b{color:var(--azul)}
+.info{font-size:13px;color:var(--muted);margin-top:10px}
+.prog{height:8px;background:#e6eaf0;border-radius:6px;overflow:hidden;margin-top:12px;display:none}
+.prog div{height:100%;width:0;background:var(--azul);transition:.2s}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border-radius:12px;padding:14px;cursor:pointer;border:2px solid transparent;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.kpi.on{border-color:var(--azul)}
+.kpi .n{font-size:28px;font-weight:800}.kpi .l{font-size:12px;color:var(--muted);font-weight:600}
+.kpi.b .n{color:var(--rojo)}.kpi.r .n{color:var(--naranja)}.kpi.a .n{color:var(--verde)}
+.acciones{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f5f7fa;text-align:left;padding:9px 8px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--borde);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid #eef0f4;vertical-align:top}
+.tag{display:inline-block;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.BLOQUEADO,.tag.VIGENTE{background:#fde8e8;color:var(--rojo)}
+.tag.REVISAR,.tag.VENCIDO{background:#fff1e0;color:var(--naranja)}
+.tag.APTO{background:#e6f4ea;color:var(--verde)}
+.tag.LEVANTADO{background:#eceff3;color:var(--muted)}
+.det{font-size:12px;color:var(--muted);margin-top:2px}
+.vacio{text-align:center;color:var(--muted);padding:24px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#1d2433;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;transition:.3s;max-width:90%;z-index:9}
+#toast.show{transform:translateX(-50%) translateY(0)}#toast.e{background:var(--rojo)}#toast.s{background:var(--verde)}
+.hidden{display:none!important}
+@media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">PPS</div>
+  <div><h1>Cruce de Bloqueos</h1><small>Último filtro de seguridad · Personal nuevo</small></div>
+</header>
+<nav>
+  <button class="on" data-tab="tCruce">Cruce de planilla</button>
+  <button data-tab="tGestion">Gestión de bloqueos</button>
+</nav>
+
+<main>
+  <section class="card">
+    <div class="grid">
+      <div><label>Tu nombre</label><input id="usuario" placeholder="Quién realiza el cruce"></div>
+      <div><label>Clave administrador</label><input id="clave" type="password" placeholder="Clave admin"></div>
+    </div>
+  </section>
+
+  <!-- ================= CRUCE ================= -->
+  <div id="tCruce">
+    <section class="card">
+      <h2>1. Cargar planilla validada por Alto</h2>
+      <div class="drop" id="drop"><b>Toca o arrastra aquí</b> el archivo Excel o CSV<br><small>.xlsx · .xls · .csv</small></div>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hidden">
+      <div class="info" id="fileInfo"></div>
+    </section>
+
+    <section class="card hidden" id="cfgCard">
+      <h2>2. Confirmar columnas</h2>
+      <div class="grid">
+        <div id="hojaBox"><label>Hoja</label><select id="hoja"></select></div>
+        <div><label>Columna RUT</label><select id="colRut"></select></div>
+        <div><label>Columna Nombre</label><select id="colNom"></select></div>
+        <div><label>Columna Apellido (opcional)</label><select id="colApe"></select></div>
+        <div><label>Formato del RUT</label>
+          <select id="modo">
+            <option value="auto">Detectar automáticamente</option>
+            <option value="con">Incluye dígito verificador</option>
+            <option value="sin">Sin dígito verificador</option>
+          </select>
+        </div>
+      </div>
+      <div class="info" id="muestra"></div>
+      <div style="margin-top:14px"><button class="btn" id="btnCruce">Ejecutar cruce</button></div>
+      <div class="prog" id="prog"><div></div></div>
+    </section>
+
+    <section class="hidden" id="resBox">
+      <div class="kpis">
+        <div class="kpi on" data-f="TODOS"><div class="n" id="kT">0</div><div class="l">Total</div></div>
+        <div class="kpi b" data-f="BLOQUEADO"><div class="n" id="kB">0</div><div class="l">⛔ Bloqueo vigente</div></div>
+        <div class="kpi r" data-f="REVISAR"><div class="n" id="kR">0</div><div class="l">⚠️ Revisar</div></div>
+        <div class="kpi a" data-f="APTO"><div class="n" id="kA">0</div><div class="l">✅ Aptos</div></div>
+      </div>
+      <div class="card">
+        <div class="acciones">
+          <button class="btn y" id="exAptos">⬇ Aptos para curso</button>
+          <button class="btn sec" id="exPeople">⬇ Reporte para People</button>
+          <button class="btn sec" id="exInterno">⬇ Reporte interno PPS</button>
+        </div>
+        <div class="tw"><table><thead><tr><th>Fila</th><th>RUT</th><th>Nombre</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody id="tbRes"></tbody></table></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= GESTIÓN ================= -->
+  <div id="tGestion" class="hidden">
+    <section class="card">
+      <h2>Buscar en la base de bloqueos</h2>
+      <div style="display:flex;gap:8px">
+        <input id="q" placeholder="RUT o nombre">
+        <button class="btn" id="btnBuscar">Buscar</button>
+      </div>
+      <div class="info" id="qInfo"></div>
+    </section>
+    <section class="card">
+      <div class="tw"><table><thead><tr><th>RUT</th><th>Nombre</th><th>Estado</th><th>Motivo</th><th>Vigencia</th><th></th></tr></thead><tbody id="tbGes"><tr><td colspan="6" class="vacio">Busca por RUT o nombre</td></tr></tbody></table></div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+/* ===== CONFIGURACIÓN: misma URL de la implementación de Apps Script ===== */
+const API_URL = 'PEGAR_AQUI_URL_APPS_SCRIPT';
+const LOTE = 150;
+
+const $ = id => document.getElementById(id);
+const S = { wb: null, archivo: '', aoa: [], hIdx: 0, headers: [], filas: [], items: [], filtro: 'TODOS' };
+
+/* ---------- utilidades ---------- */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function toast(msg, tipo) { const t = $('toast'); t.textContent = msg; t.className = 'show ' + (tipo || ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = '', 4500); }
+function ss(k, v) { try { if (v === undefined) return sessionStorage.getItem(k) || ''; sessionStorage.setItem(k, v); } catch (e) { return ''; } }
+function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { return ''; } }
+function fechaArchivo() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+function jsonp(params, timeout) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    const s = document.createElement('script');
+    let done = false;
+    const fin = () => { done = true; clearTimeout(t); window[cb] = function () {}; s.remove(); };
+    const t = setTimeout(() => { if (!done) { fin(); reject(new Error('Sin respuesta del servidor')); } }, timeout || 30000);
+    window[cb] = d => { if (!done) { fin(); resolve(d); } };
+    s.onerror = () => { if (!done) { fin(); reject(new Error('Sin conexión con el servidor (¿red bloquea script.google.com?)')); } };
+    s.src = API_URL + '?' + new URLSearchParams(Object.assign({}, params, { callback: cb })).toString();
+    document.body.appendChild(s);
+  });
+}
+function credenciales() {
+  const clave = $('clave').value.trim(), usuario = $('usuario').value.trim();
+  if (!usuario) { toast('Indica tu nombre', 'e'); $('usuario').focus(); return null; }
+  if (!clave) { toast('Ingresa la clave de administrador', 'e'); $('clave').focus(); return null; }
+  ss('bloq_clave', clave); ls('bloq_usuario', usuario);
+  return { clave, usuario };
+}
+
+/* ---------- RUT ---------- */
+function calcDV(body) { let s = 0, m = 2; for (let i = body.length - 1; i >= 0; i--) { s += +body[i] * m; m = m === 7 ? 2 : m + 1; } const r = 11 - (s % 11); return r === 11 ? '0' : r === 10 ? 'K' : String(r); }
+function fmtRut(b, d) { return b.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + d; }
+function parseRut(raw, modo) {
+  let s = String(raw == null ? '' : raw).toUpperCase().replace(/[.\s]/g, '');
+  if (!s) return { valido: false, body: '', motivo: 'RUT vacío' };
+  let body, dv;
+  if (modo === 'sin' && !s.includes('-')) {
+    body = s.replace(/\D/g, '').replace(/^0+/, '');
+    if (!/^\d{6,9}$/.test(body)) return { valido: false, body: '', motivo: 'Formato de RUT inválido' };
+    dv = calcDV(body);
+    return { valido: true, body, display: fmtRut(body, dv) };
+  }
+  if (s.includes('-')) { const p = s.split('-'); body = p[0].replace(/\D/g, ''); dv = (p[1] || '').replace(/[^0-9K]/g, '').slice(0, 1); }
+  else { s = s.replace(/[^0-9K]/g, ''); body = s.slice(0, -1); dv = s.slice(-1); }
+  body = body.replace(/^0+/, '');
+  if (!/^\d{6,9}$/.test(body)) return { valido: false, body: '', motivo: 'Formato de RUT inválido' };
+  if (dv !== calcDV(body)) return { valido: false, body: '', motivo: 'Dígito verificador incorrecto' };
+  return { valido: true, body, display: fmtRut(body, dv) };
+}
+function detectarModo(vals) {
+  let n = 0, conSep = 0, validos = 0;
+  vals.forEach(v => {
+    const s = String(v == null ? '' : v).trim().replace(/\s/g, ''); if (!s) return;
+    n++; if (/-|k$/i.test(s)) conSep++; if (parseRut(s, 'con').valido) validos++;
+  });
+  if (!n || conSep / n > 0.5) return 'con';
+  return validos / n >= 0.6 ? 'con' : 'sin';
+}
+
+/* ---------- pestañas ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  ['tCruce', 'tGestion'].forEach(id => $(id).classList.toggle('hidden', id !== b.dataset.tab));
+});
+
+/* ---------- carga de archivo ---------- */
+$('drop').onclick = () => $('file').click();
+$('drop').ondragover = e => { e.preventDefault(); $('drop').classList.add('over'); };
+$('drop').ondragleave = () => $('drop').classList.remove('over');
+$('drop').ondrop = e => { e.preventDefault(); $('drop').classList.remove('over'); if (e.dataTransfer.files[0]) leerArchivo(e.dataTransfer.files[0]); };
+$('file').onchange = e => { if (e.target.files[0]) leerArchivo(e.target.files[0]); };
+
+function leerArchivo(f) {
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      S.wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+      S.archivo = f.name;
+      $('hoja').innerHTML = S.wb.SheetNames.map(n => '<option>' + esc(n) + '</option>').join('');
+      $('hojaBox').classList.toggle('hidden', S.wb.SheetNames.length < 2);
+      cargarHoja(S.wb.SheetNames[0]);
+      $('resBox').classList.add('hidden');
+    } catch (err) { toast('No se pudo leer el archivo: ' + err.message, 'e'); }
+  };
+  r.readAsArrayBuffer(f);
+}
+$('hoja').onchange = () => cargarHoja($('hoja').value);
+
+function cargarHoja(nombre) {
+  const aoa = XLSX.utils.sheet_to_json(S.wb.Sheets[nombre], { header: 1, defval: '', raw: false });
+  let h = aoa.findIndex((r, i) => i < 15 && r.some(c => /\b(rut|run)\b/i.test(String(c))));
+  if (h < 0) h = aoa.findIndex(r => r.some(c => String(c).trim() !== ''));
+  if (h < 0) return toast('La hoja está vacía', 'e');
+  S.aoa = aoa; S.hIdx = h;
+  const ancho = Math.max(...aoa.map(r => r.length));
+  S.headers = Array.from({ length: ancho }, (_, i) => String(aoa[h][i] || '').trim() || 'Columna ' + XLSX.utils.encode_col(i));
+  S.filas = [];
+  aoa.forEach((r, i) => { if (i > h && r.some(c => String(c).trim() !== '')) S.filas.push({ excel: i + 1, r }); });
+
+  const opts = (vacio) => (vacio ? '<option value="-1">— Ninguna —</option>' : '') + S.headers.map((x, i) => '<option value="' + i + '">' + esc(x) + '</option>').join('');
+  $('colRut').innerHTML = opts(false); $('colNom').innerHTML = opts(true); $('colApe').innerHTML = opts(true);
+
+  let cR = S.headers.findIndex(x => /\b(rut|run)\b|documento|identificaci/i.test(x));
+  if (cR < 0) { // columna con más RUT válidos
+    let best = -1, bestN = 0;
+    S.headers.forEach((_, i) => { const n = S.filas.slice(0, 50).filter(f => parseRut(f.r[i], 'con').valido).length; if (n > bestN) { bestN = n; best = i; } });
+    cR = best < 0 ? 0 : best;
+  }
+  $('colRut').value = cR;
+  $('colNom').value = S.headers.findIndex(x => /nombre/i.test(x));
+  $('colApe').value = S.headers.findIndex(x => /apellido/i.test(x));
+  $('fileInfo').innerHTML = '📄 <b>' + esc(S.archivo) + '</b> · ' + S.filas.length + ' personas · encabezado en fila ' + (h + 1);
+  $('cfgCard').classList.remove('hidden');
+  actualizarMuestra();
+}
+['colRut', 'modo'].forEach(id => $(id).onchange = actualizarMuestra);
+function modoActual() { const c = +$('colRut').value; return $('modo').value === 'auto' ? detectarModo(S.filas.map(f => f.r[c])) : $('modo').value; }
+function actualizarMuestra() {
+  const c = +$('colRut').value, m = modoActual();
+  const ej = S.filas.slice(0, 3).map(f => { const p = parseRut(f.r[c], m); return esc(f.r[c]) + ' → ' + (p.valido ? '<b>' + p.display + '</b>' : '<span style="color:var(--rojo)">' + p.motivo + '</span>'); });
+  $('muestra').innerHTML = 'Formato detectado: <b>' + (m === 'con' ? 'con dígito verificador' : 'sin dígito verificador') + '</b><br>Ejemplos: ' + ej.join(' · ');
+}
+
+/* ---------- cruce ---------- */
+$('btnCruce').onclick = async () => {
+  const cred = credenciales(); if (!cred) return;
+  const cR = +$('colRut').value, cN = +$('colNom').value, cA = +$('colApe').value, modo = modoActual();
+  const items = S.filas.map(f => {
+    const p = parseRut(f.r[cR], modo);
+    const nombre = [cN >= 0 ? f.r[cN] : '', cA >= 0 ? f.r[cA] : ''].join(' ').replace(/\s+/g, ' ').trim();
+    return { excel: f.excel, r: f.r, rutOrig: f.r[cR], p, nombre, resultado: '', detalle: '', bloqueos: [] };
+  });
+  const conteo = {};
+  items.forEach(it => { if (it.p.valido) conteo[it.p.body] = (conteo[it.p.body] || 0) + 1; });
+  const keys = Object.keys(conteo);
+  const lotes = []; for (let i = 0; i < keys.length; i += LOTE) lotes.push(keys.slice(i, i + LOTE));
+
+  $('btnCruce').disabled = true; $('prog').style.display = 'block'; $('prog').firstElementChild.style.width = '0';
+  const res = {};
+  try {
+    for (let i = 0; i < lotes.length; i++) {
+      const r = await jsonp({ action: 'cruce', clave: cred.clave, ruts: lotes[i].join(',') });
+      if (!r.ok) throw new Error(r.error || 'Error en el servidor');
+      Object.assign(res, r.res);
+      $('prog').firstElementChild.style.width = Math.round((i + 1) / lotes.length * 100) + '%';
+    }
+  } catch (err) {
+    toast('Cruce detenido: ' + err.message, 'e');
+    $('btnCruce').disabled = false; $('prog').style.display = 'none';
+    return;
+  }
+
+  items.forEach(it => {
+    const m = it.p.valido ? res[it.p.body] : null;
+    if (!it.p.valido) { it.resultado = 'REVISAR'; it.detalle = it.p.motivo + ' (valor: "' + it.rutOrig + '")'; return; }
+    if (m && m.estado === 'BLOQUEADO') {
+      it.resultado = 'BLOQUEADO'; it.bloqueos = m.bloqueos;
+      it.detalle = m.bloqueos.map(b => b.categoria + ': ' + b.motivo + ' · desde ' + b.inicio + ' · hasta ' + b.termino + (b.ref ? ' · Ref ' + b.ref : '')).join(' | ');
+      return;
+    }
+    if (m && m.estado === 'RECIENTE') {
+      it.resultado = 'REVISAR'; it.bloqueos = m.bloqueos;
+      it.detalle = 'Bloqueo ' + m.bloqueos.map(b => b.estado.toLowerCase() + ' el ' + b.fin + ' (' + b.categoria + ')').join(', ') + ' — últimos 90 días';
+      return;
+    }
+    if (conteo[it.p.body] > 1) { it.resultado = 'REVISAR'; it.detalle = 'RUT repetido ' + conteo[it.p.body] + ' veces en la planilla'; return; }
+    it.resultado = 'APTO';
+  });
+  S.items = items;
+  $('btnCruce').disabled = false; setTimeout(() => $('prog').style.display = 'none', 600);
+  pintarResultados();
+  const k = cont();
+  toast(k.B ? '⛔ ' + k.B + ' persona(s) con bloqueo vigente' : '✓ Cruce completo: sin bloqueos vigentes', k.B ? 'e' : 's');
+  jsonp({ action: 'logCruce', clave: cred.clave, usuario: cred.usuario, archivo: S.archivo, total: k.T, bloqueados: k.B, revisar: k.R, aptos: k.A }).catch(() => {});
+};
+
+function cont() { const c = { T: S.items.length, B: 0, R: 0, A: 0 }; S.items.forEach(i => { if (i.resultado === 'BLOQUEADO') c.B++; else if (i.resultado === 'REVISAR') c.R++; else c.A++; }); return c; }
+function pintarResultados() {
+  const k = cont();
+  $('kT').textContent = k.T; $('kB').textContent = k.B; $('kR').textContent = k.R; $('kA').textContent = k.A;
+  document.querySelectorAll('.kpi').forEach(x => x.classList.toggle('on', x.dataset.f === S.filtro));
+  const orden = { BLOQUEADO: 0, REVISAR: 1, APTO: 2 };
+  const lista = S.items.filter(i => S.filtro === 'TODOS' || i.resultado === S.filtro).sort((a, b) => orden[a.resultado] - orden[b.resultado] || a.excel - b.excel);
+  $('tbRes').innerHTML = lista.length ? lista.map(i =>
+    '<tr><td>' + i.excel + '</td><td>' + esc(i.p.valido ? i.p.display : i.rutOrig) + '</td><td>' + esc(i.nombre) + '</td>' +
+    '<td><span class="tag ' + i.resultado + '">' + (i.resultado === 'BLOQUEADO' ? 'BLOQUEO VIGENTE' : i.resultado) + '</span></td>' +
+    '<td>' + esc(i.detalle) + '</td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin registros</td></tr>';
+  $('resBox').classList.remove('hidden');
+}
+document.querySelectorAll('.kpi').forEach(k => k.onclick = () => { S.filtro = k.dataset.f; pintarResultados(); });
+
+/* ---------- exportaciones ---------- */
+function descargar(aoa, nombreHoja, archivo) {
+  const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, nombreHoja); XLSX.writeFile(wb, archivo);
+}
+function filaCompleta(r) { return S.headers.map((_, i) => r[i] == null ? '' : r[i]); }
+$('exAptos').onclick = () => {
+  const aptos = S.items.filter(i => i.resultado === 'APTO');
+  if (!aptos.length) return toast('No hay personas aptas', 'e');
+  descargar([S.headers, ...aptos.map(i => filaCompleta(i.r))], 'Aptos', 'Aptos_curso_' + fechaArchivo() + '.xlsx');
+};
+$('exPeople').onclick = () => {
+  const lbl = { APTO: 'APTO', BLOQUEADO: 'NO APTO - Validación de seguridad', REVISAR: 'PENDIENTE - En revisión por Seguridad' };
+  descargar([[...S.headers, 'Validación Seguridad PPS'], ...S.items.slice().sort((a, b) => a.excel - b.excel).map(i => [...filaCompleta(i.r), lbl[i.resultado]])],
+    'Validación', 'Validacion_Seguridad_' + fechaArchivo() + '.xlsx');
+};
+$('exInterno').onclick = () => {
+  const rows = [['Fila', 'RUT', 'Nombre', 'Resultado', 'Detalle', 'Categoría', 'Inicio', 'Término', 'Ref CCTV', 'Registrado por']];
+  S.items.forEach(i => {
+    const b = i.bloqueos[0] || {};
+    rows.push([i.excel, i.p.valido ? i.p.display : i.rutOrig, i.nombre, i.resultado, i.detalle, b.categoria || '', b.inicio || '', b.termino || '', b.ref || '', b.registradoPor || '']);
+  });
+  descargar(rows, 'Cruce', 'Cruce_Bloqueos_INTERNO_' + fechaArchivo() + '.xlsx');
+};
+
+/* ---------- gestión ---------- */
+async function buscar() {
+  const cred = credenciales(); if (!cred) return;
+  const q = $('q').value.trim(); if (q.length < 3) return toast('Escribe al menos 3 caracteres', 'e');
+  $('qInfo').textContent = 'Buscando…';
+  try {
+    const r = await jsonp({ action: 'buscar', clave: cred.clave, q });
+    if (!r.ok) { $('qInfo').textContent = ''; return toast(r.error, 'e'); }
+    $('qInfo').textContent = r.total + ' resultado(s)' + (r.total > 100 ? ' (mostrando 100)' : '');
+    $('tbGes').innerHTML = r.items.length ? r.items.map(b =>
+      '<tr><td>' + esc(b.rut) + '</td><td>' + esc(b.nombre) + '</td><td><span class="tag ' + b.estado + '">' + b.estado + '</span>' +
+      (b.estado === 'LEVANTADO' ? '<div class="det">' + esc(b.fin) + ': ' + esc(b.levMotivo) + '</div>' : '') + '</td>' +
+      '<td>' + esc(b.categoria) + '<div class="det">' + esc(b.motivo) + (b.ref ? ' · Ref ' + esc(b.ref) : '') + '</div></td>' +
+      '<td>' + esc(b.inicio) + ' → ' + esc(b.termino) + '<div class="det">Por ' + esc(b.registradoPor) + '</div></td>' +
+      '<td>' + (b.estado === 'VIGENTE' ? '<button class="btn sec" data-id="' + esc(b.id) + '">Levantar</button>' : '') + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="vacio">Sin coincidencias</td></tr>';
+  } catch (e) { $('qInfo').textContent = ''; toast(e.message, 'e'); }
+}
+$('btnBuscar').onclick = buscar;
+$('q').onkeydown = e => { if (e.key === 'Enter') buscar(); };
+$('tbGes').onclick = async e => {
+  const b = e.target.closest('button[data-id]'); if (!b) return;
+  const cred = credenciales(); if (!cred) return;
+  const motivo = prompt('Motivo del levantamiento del bloqueo:');
+  if (!motivo || !motivo.trim()) return;
+  b.disabled = true;
+  try {
+    const r = await jsonp({ action: 'levantar', clave: cred.clave, id: b.dataset.id, motivo: motivo.trim(), usuario: cred.usuario });
+    if (r.ok) { toast('✓ Bloqueo levantado', 's'); buscar(); } else { toast(r.error, 'e'); b.disabled = false; }
+  } catch (err) { toast(err.message, 'e'); b.disabled = false; }
+};
+
+/* ---------- inicio ---------- */
+$('usuario').value = ls('bloq_usuario');
+$('clave').value = ss('bloq_clave');
+</script>
+</body>
+</html>
